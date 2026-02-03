@@ -1,14 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginUser, registerUser, isUsernameTaken, getAppState } from '../store';
-import { Gamepad2, Rocket, ArrowRight, UserPlus, LogIn, AlertCircle, UserCircle, ChevronRight, History } from 'lucide-react';
+import { loginUser, registerUser, getAppState } from '../store';
+import { Rocket, ArrowRight, UserPlus, LogIn, AlertCircle, UserCircle, ChevronRight, History, Loader2 } from 'lucide-react';
 import { User } from '../types';
 
 const Login: React.FC<{ onLogin: () => void; t: any }> = ({ onLogin, t }) => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [localAccounts, setLocalAccounts] = useState<User[]>([]);
   const navigate = useNavigate();
 
@@ -17,34 +18,39 @@ const Login: React.FC<{ onLogin: () => void; t: any }> = ({ onLogin, t }) => {
     setLocalAccounts(state.allUsers || []);
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     handleAction(username);
   };
 
-  const handleAction = (targetUsername: string) => {
+  const handleAction = async (targetUsername: string) => {
     setError('');
     const cleanUsername = targetUsername.trim();
     if (!cleanUsername) return;
 
-    if (mode === 'register') {
-      if (isUsernameTaken(cleanUsername)) {
-        setError(t.login.taken);
-        return;
-      }
-      const user = registerUser(cleanUsername);
-      if (user) {
-        onLogin();
-        navigate('/');
-      }
-    } else {
-      const user = loginUser(cleanUsername);
-      if (user) {
-        onLogin();
-        navigate('/');
+    setLoading(true);
+    try {
+      if (mode === 'register') {
+        const user = await registerUser(cleanUsername);
+        if (user) {
+          onLogin();
+          navigate('/');
+        } else {
+          setError(t.login.taken);
+        }
       } else {
-        setError(t.login.notFound);
+        const user = await loginUser(cleanUsername);
+        if (user) {
+          onLogin();
+          navigate('/');
+        } else {
+          setError(t.login.notFound);
+        }
       }
+    } catch (err) {
+      setError("Connection to global vault failed. Check network.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -66,12 +72,14 @@ const Login: React.FC<{ onLogin: () => void; t: any }> = ({ onLogin, t }) => {
         <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
           <div className="flex gap-1 bg-slate-950 p-1 rounded-2xl mb-8">
             <button 
+              disabled={loading}
               onClick={() => { setMode('login'); setError(''); }}
               className={`flex-grow py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${mode === 'login' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
             >
               <LogIn className="w-3.5 h-3.5" /> {t.login.loginMode}
             </button>
             <button 
+              disabled={loading}
               onClick={() => { setMode('register'); setError(''); }}
               className={`flex-grow py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${mode === 'register' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
             >
@@ -85,6 +93,7 @@ const Login: React.FC<{ onLogin: () => void; t: any }> = ({ onLogin, t }) => {
               <input 
                 required
                 autoFocus
+                disabled={loading}
                 type="text" 
                 className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-indigo-400 font-space text-lg focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all placeholder:text-slate-800"
                 placeholder={t.login.usernamePlaceholder}
@@ -102,14 +111,21 @@ const Login: React.FC<{ onLogin: () => void; t: any }> = ({ onLogin, t }) => {
 
             <button 
               type="submit"
-              className="w-full bg-white text-black hover:bg-indigo-400 font-black py-4 rounded-2xl transition-all shadow-xl flex items-center justify-center gap-3 uppercase tracking-widest active:scale-95 group"
+              disabled={loading}
+              className="w-full bg-white text-black hover:bg-indigo-400 font-black py-4 rounded-2xl transition-all shadow-xl flex items-center justify-center gap-3 uppercase tracking-widest active:scale-95 group disabled:opacity-50"
             >
-              {mode === 'login' ? t.login.submitLogin : t.login.submitRegister}
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              {loading ? (
+                <><Loader2 className="w-5 h-5 animate-spin" /> Authorizing...</>
+              ) : (
+                <>
+                  {mode === 'login' ? t.login.submitLogin : t.login.submitRegister}
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
             </button>
             
             <p className="text-[9px] text-center text-slate-600 uppercase font-black tracking-widest leading-relaxed">
-              {t.login.notice}
+              Global identity protocol active. Your data is synced to the cloud.
             </p>
           </form>
         </div>
@@ -119,18 +135,19 @@ const Login: React.FC<{ onLogin: () => void; t: any }> = ({ onLogin, t }) => {
         <div className="w-full max-w-xs space-y-6 animate-in slide-in-from-right duration-700">
           <div className="flex items-center gap-2 text-slate-500 mb-2">
             <History className="w-4 h-4" />
-            <h2 className="text-[10px] font-black uppercase tracking-widest">Accounts on this device</h2>
+            <h2 className="text-[10px] font-black uppercase tracking-widest">Recent Profiles</h2>
           </div>
           <div className="space-y-3">
             {localAccounts.map(acc => (
               <button 
                 key={acc.username}
+                disabled={loading}
                 onClick={() => {
                   setMode('login');
                   setUsername(acc.username);
                   handleAction(acc.username);
                 }}
-                className="w-full bg-slate-900/40 hover:bg-slate-900/80 border border-slate-800 hover:border-indigo-500/50 p-4 rounded-2xl flex items-center gap-4 transition-all group"
+                className="w-full bg-slate-900/40 hover:bg-slate-900/80 border border-slate-800 hover:border-indigo-500/50 p-4 rounded-2xl flex items-center gap-4 transition-all group disabled:opacity-50"
               >
                 <div className="w-10 h-10 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center overflow-hidden shrink-0">
                   {acc.profilePicture ? (
@@ -141,15 +158,12 @@ const Login: React.FC<{ onLogin: () => void; t: any }> = ({ onLogin, t }) => {
                 </div>
                 <div className="text-left flex-grow">
                   <div className="text-sm font-bold text-white group-hover:text-indigo-400 transition-colors uppercase tracking-tight">{acc.username}</div>
-                  <div className="text-[9px] text-slate-600 uppercase font-black tracking-widest">Active local session</div>
+                  <div className="text-[9px] text-slate-600 uppercase font-black tracking-widest">Active session</div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-800 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
               </button>
             ))}
           </div>
-          <p className="text-[10px] text-slate-600 font-light italic leading-relaxed">
-            Note: If an account isn't listed here, it means the browser data was cleared. Use the 'Restore Account' feature in Settings to recover from a backup file.
-          </p>
         </div>
       )}
     </div>

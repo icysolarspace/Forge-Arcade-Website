@@ -12,9 +12,10 @@ import {
   FileText,
   HelpCircle,
   LayoutGrid,
-  Mail
+  Mail,
+  Loader2
 } from 'lucide-react';
-import { getAppState, logoutUser } from './store';
+import { getAppState, logoutUser, fetchGlobalData } from './store';
 import { AppState, User } from './types';
 import { translations } from './translations';
 
@@ -26,7 +27,7 @@ const ScrollToTop = () => {
   return null;
 };
 
-const Navbar: React.FC<{ user: User | null; onLogout: () => void; t: any }> = ({ user, onLogout, t }) => {
+const Navbar: React.FC<{ user: User | null; onLogout: () => void; t: any; syncing?: boolean }> = ({ user, onLogout, t, syncing }) => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   
@@ -39,6 +40,11 @@ const Navbar: React.FC<{ user: User | null; onLogout: () => void; t: any }> = ({
               <Gamepad2 className="w-8 h-8 text-indigo-400" />
               <span className="hidden sm:inline font-space tracking-tight">FORGEARCADE</span>
             </Link>
+            {syncing && (
+              <div className="ml-4 flex items-center gap-2 text-[10px] font-black text-indigo-400 uppercase tracking-widest bg-indigo-500/10 px-3 py-1 rounded-full animate-pulse">
+                <Loader2 className="w-3 h-3 animate-spin" /> Syncing Cloud
+              </div>
+            )}
             <div className="hidden md:block ml-10">
               <div className="flex items-baseline space-x-4">
                 <Link to="/" className={`px-3 py-2 rounded-md text-sm font-medium transition-all ${location.pathname === '/' ? 'text-indigo-400' : 'text-gray-300 hover:text-white'}`}>{t.nav.browse}</Link>
@@ -131,14 +137,34 @@ import Contact from './pages/Contact';
 
 export default function App() {
   const [state, setState] = useState<AppState>(getAppState());
+  const [syncing, setSyncing] = useState(false);
+
+  const syncData = async () => {
+    setSyncing(true);
+    const globalData = await fetchGlobalData();
+    setState(prev => ({
+      ...prev,
+      ...getAppState(), // Keep user session
+      games: globalData.games,
+      allUsers: globalData.users
+    }));
+    setSyncing(false);
+  };
+
+  useEffect(() => {
+    syncData();
+    // Auto-refresh every 60 seconds to see new community games
+    const interval = setInterval(syncData, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogout = () => {
     logoutUser();
-    setState(getAppState());
+    syncData();
   };
 
   const refreshState = () => {
-    setState(getAppState());
+    syncData();
   };
 
   const currentLang = state.language || 'en';
@@ -148,7 +174,7 @@ export default function App() {
     <HashRouter>
       <ScrollToTop />
       <div className="min-h-screen flex flex-col">
-        <Navbar user={state.currentUser} onLogout={handleLogout} t={t} />
+        <Navbar user={state.currentUser} onLogout={handleLogout} t={t} syncing={syncing} />
         <main className="flex-grow">
           <Routes>
             <Route path="/" element={<Home games={state.games} user={state.currentUser} t={t} />} />
@@ -195,7 +221,7 @@ export default function App() {
               </div>
             </div>
             <div className="mt-8 pt-8 border-t border-slate-800/50 text-center text-gray-600 text-[11px] tracking-widest uppercase">
-              &copy; {new Date().getFullYear()} FORGEARCADE DIGITAL. ALL SYSTEMS NOMINAL.
+              &copy; {new Date().getFullYear()} FORGEARCADE DIGITAL. GLOBAL NETWORK ACTIVE.
             </div>
           </div>
         </footer>

@@ -31,6 +31,7 @@ export interface Game {
   reactions: Record<string, number>;
   userReactions?: Record<string, string>; // Maps username to emoji
   moderated?: boolean; 
+  isLive?: boolean; // Indicates a community signal game
 }
 
 export interface User {
@@ -46,4 +47,5 @@ export interface AppState {
   allUsers: User[]; 
   games: Game[];
   language: Language;
+  communityGames: Game[]; // Simulated real-time signals from other users
 }

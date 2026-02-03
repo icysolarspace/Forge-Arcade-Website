@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Play, Trophy, Clock, Gamepad, Sparkles, LayoutGrid, Rocket, ChevronRight, User as UserIcon, Zap, ShieldCheck, Cpu } from 'lucide-react';

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { BarChart3, Rocket, Heart, Play, Activity, Cpu } from 'lucide-react';
+import { Rocket, Heart, Play, Activity, Cpu, Cloud, CloudOff } from 'lucide-react';
 import { User, Game } from '../types';
 
 interface DashboardProps {
@@ -23,9 +23,8 @@ const StatCard: React.FC<{ icon: React.ReactNode, label: string, value: string |
 );
 
 const Dashboard: React.FC<DashboardProps> = ({ user, games, t }) => {
-  const userGames = games.filter(g => g.creator === user.username);
+  const userGames = games.filter(g => g.creator.toLowerCase() === user.username.toLowerCase());
   const totalPlays = userGames.reduce((acc, curr) => acc + curr.plays, 0);
-  // Fix: Explicitly type reduce accumulators to avoid 'unknown' type errors during calculation
   const totalReactions = userGames.reduce((acc: number, curr: Game) => {
     const reactions = curr.reactions || {};
     return acc + Object.values(reactions).reduce((a: number, b: number) => a + b, 0);
@@ -38,7 +37,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, games, t }) => {
         <p className="text-slate-500 font-light">{t.dashboard.sub}</p>
       </header>
 
-      {/* Engagement Analytics */}
       <section className="mb-12">
         <div className="flex items-center gap-3 mb-8">
           <Activity className="w-5 h-5 text-indigo-400" />
@@ -48,19 +46,19 @@ const Dashboard: React.FC<DashboardProps> = ({ user, games, t }) => {
           <StatCard 
             icon={<Play className="w-5 h-5 text-indigo-400" />} 
             label={t.dashboard.stats.plays} 
-            value={totalPlays > 0 ? totalPlays.toLocaleString() : '---'} 
+            value={totalPlays > 0 ? totalPlays.toLocaleString() : '0'} 
             color="bg-indigo-400/10" 
           />
           <StatCard 
             icon={<Heart className="w-5 h-5 text-purple-400" />} 
             label={t.dashboard.stats.reactions} 
-            value={totalReactions > 0 ? totalReactions.toLocaleString() : '---'} 
+            value={totalReactions > 0 ? totalReactions.toLocaleString() : '0'} 
             color="bg-purple-400/10" 
           />
           <StatCard 
             icon={<Rocket className="w-5 h-5 text-amber-400" />} 
             label={t.dashboard.stats.games} 
-            value={userGames.length > 0 ? userGames.length : '---'} 
+            value={userGames.length > 0 ? userGames.length : '0'} 
             color="bg-amber-400/10" 
           />
         </div>
@@ -78,15 +76,17 @@ const Dashboard: React.FC<DashboardProps> = ({ user, games, t }) => {
              </h2>
              <div className="space-y-6 relative z-10">
                 <div className="flex items-center justify-between py-3 border-b border-slate-800">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Storage Status</span>
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                    <Cloud className="w-4 h-4 text-indigo-400" /> Supabase Storage
+                  </span>
                   <span className="text-xs font-black uppercase tracking-widest text-green-500">
-                    Online (Local)
+                    Live Cluster Connected
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-3">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Publishing Rights</span>
-                  <span className="text-xs font-black uppercase tracking-widest text-green-500">
-                    Authorized
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Global Visibility</span>
+                  <span className="text-xs font-black uppercase tracking-widest text-indigo-500">
+                    Public Hangar
                   </span>
                 </div>
              </div>
@@ -97,9 +97,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, games, t }) => {
           <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800 rounded-3xl p-8 shadow-xl">
             <h3 className="font-bold font-space text-white text-lg mb-4 uppercase tracking-tight">Session Log</h3>
             <div className="space-y-4 text-slate-500 text-sm font-light leading-relaxed">
-              <p>• Local storage vault is active.</p>
+              <p>• Connected to ikjiwax...supabase.co</p>
               <p>• Logged in as {user.username}.</p>
-              <p>• System is ready for deployments.</p>
+              <p>• Community syncing active (60s).</p>
             </div>
           </div>
         </div>
