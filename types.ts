@@ -30,7 +30,7 @@ export interface Game {
   plays: number;
   reactions: Record<string, number>;
   userReactions?: Record<string, string>; // Maps username to emoji
-  moderated?: boolean; // Indicates if the game passed safety checks
+  moderated?: boolean; 
 }
 
 export interface User {
@@ -46,6 +46,4 @@ export interface AppState {
   allUsers: User[]; 
   games: Game[];
   language: Language;
-  codingKey?: string;
-  imageKey?: string;
 }

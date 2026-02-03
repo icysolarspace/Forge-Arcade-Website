@@ -7,9 +7,7 @@ const DEFAULT_STATE: AppState = {
   currentUser: null,
   allUsers: [],
   games: [],
-  language: 'en',
-  codingKey: '',
-  imageKey: ''
+  language: 'en'
 };
 
 export const getAppState = (): AppState => {
@@ -22,9 +20,7 @@ export const getAppState = (): AppState => {
       ...DEFAULT_STATE,
       ...parsed,
       allUsers: parsed.allUsers || (parsed.currentUser ? [parsed.currentUser] : []),
-      games: parsed.games || [],
-      codingKey: parsed.codingKey || '',
-      imageKey: parsed.imageKey || ''
+      games: parsed.games || []
     };
     return state;
   } catch (e) {
@@ -40,13 +36,6 @@ export const saveAppState = (state: AppState) => {
 export const setLanguage = (lang: Language) => {
   const state = getAppState();
   state.language = lang;
-  saveAppState(state);
-};
-
-export const updateKeys = (codingKey: string, imageKey: string) => {
-  const state = getAppState();
-  state.codingKey = codingKey;
-  state.imageKey = imageKey;
   saveAppState(state);
 };
 
@@ -100,7 +89,7 @@ export const publishGame = (game: Omit<Game, 'id' | 'createdAt' | 'plays' | 'rea
     plays: 0,
     reactions: { '👍': 0, '❤️': 0, '🚀': 0, '🔥': 0, '🕹️': 0 },
     userReactions: {},
-    moderated: true // Games published through the UI are moderated
+    moderated: true 
   };
   state.games.unshift(newGame);
   saveAppState(state);

@@ -1,13 +1,11 @@
 
-import React, { useState, useRef, useEffect } from 'react';
-import { User, Game, Language } from '../types';
-import { getAppState, saveAppState, downloadUserData, importData, setLanguage, updateKeys } from '../store';
+import React, { useState, useRef } from 'react';
+import { User, Language } from '../types';
+import { getAppState, saveAppState, downloadUserData, importData, setLanguage } from '../store';
 import { 
   User as UserIcon, LogOut, Download, ShieldCheck, FileJson, 
-  FileCode, CheckCircle, Info, Upload, Image as ImageIcon, Sparkles, Loader2, RefreshCw, AlertTriangle, Globe, Key, Activity, XCircle, Mail
+  FileCode, CheckCircle, Info, Upload, CheckCircle2, XCircle, Mail
 } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
-import { Link } from 'react-router-dom';
 
 interface SettingsProps {
   user: User;
@@ -17,21 +15,14 @@ interface SettingsProps {
   currentLang: Language;
 }
 
-const Settings: React.FC<SettingsProps> = ({ user, onUpdate, onLogout, t, currentLang }) => {
+const Settings: React.FC<SettingsProps> = ({ user, onUpdate, onLogout, t }) => {
   const state = getAppState();
   const [username, setUsername] = useState(user.username);
   const [saved, setSaved] = useState(false);
-  const [isGeneratingPic, setIsGeneratingPic] = useState(false);
-  const [picPrompt, setPicPrompt] = useState('');
   const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
   
-  // API Key States
-  const [codingKey, setCodingKey] = useState(state.codingKey || '');
-  const [imageKey, setImageKey] = useState(state.imageKey || '');
-  const [codingStatus, setCodingStatus] = useState<'idle' | 'valid' | 'invalid' | 'loading'>('idle');
-  const [imageStatus, setImageStatus] = useState<'idle' | 'valid' | 'invalid' | 'loading'>('idle');
-
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const handleUpdateUsername = () => {
     const appState = getAppState();
@@ -47,66 +38,22 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdate, onLogout, t, curren
     }
   };
 
-  const handleUpdateKeys = () => {
-    updateKeys(codingKey, imageKey);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-    onUpdate();
-  };
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  const testKey = async (key: string, setStatus: (s: any) => void) => {
-    if (!key) return;
-    setStatus('loading');
-    try {
-      const ai = new GoogleGenAI({ apiKey: key });
-      await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: "test",
-        config: { maxOutputTokens: 1 }
-      });
-      setStatus('valid');
-    } catch (e) {
-      console.error(e);
-      setStatus('invalid');
-    }
-  };
-
-  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const lang = e.target.value as Language;
-    setLanguage(lang);
-    onUpdate();
-  };
-
-  const handleGenerateProfilePic = async () => {
-    const activeKey = imageKey || state.imageKey || process.env.API_KEY;
-    if (!picPrompt.trim() || !activeKey) return;
-    setIsGeneratingPic(true);
-    try {
-      const ai = new GoogleGenAI({ apiKey: activeKey });
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: { parts: [{ text: `A professional, stylized profile avatar of a ${picPrompt}. Digital art, clean composition.` }] },
-        config: { imageConfig: { aspectRatio: "1:1" } },
-      });
-
-      const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-      if (part?.inlineData) {
-        const appState = getAppState();
-        const b64 = `data:image/png;base64,${part.inlineData.data}`;
-        if (appState.currentUser) {
-          appState.currentUser.profilePicture = b64;
-          appState.allUsers = appState.allUsers.map(u => u.username === user.username ? { ...u, profilePicture: b64 } : u);
-          saveAppState(appState);
-          onUpdate();
-          setPicPrompt('');
-        }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const b64 = event.target?.result as string;
+      const appState = getAppState();
+      if (appState.currentUser) {
+        appState.currentUser.profilePicture = b64;
+        appState.allUsers = appState.allUsers.map(u => u.username === user.username ? { ...u, profilePicture: b64 } : u);
+        saveAppState(appState);
+        onUpdate();
       }
-    } catch (error) {
-      console.error(error);
-      alert("Avatar failed. Check your Image API Key.");
-    } finally {
-      setIsGeneratingPic(false);
-    }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -144,6 +91,57 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdate, onLogout, t, curren
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         <div className="lg:col-span-7 space-y-8">
+          {/* Identity Section */}
+          <section className="bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 rounded-xl bg-indigo-600/10 flex items-center justify-center text-indigo-400 border border-indigo-400/20">
+                <UserIcon className="w-5 h-5" />
+              </div>
+              <h2 className="text-xl font-bold font-space text-white uppercase tracking-tight">{t.settings.identity}</h2>
+            </div>
+            
+            <div className="space-y-6">
+              <div className="flex flex-col md:flex-row gap-8 items-center mb-8">
+                <div 
+                  onClick={() => avatarInputRef.current?.click()}
+                  className="w-32 h-32 rounded-3xl bg-slate-950 border border-slate-800 flex items-center justify-center overflow-hidden shrink-0 shadow-inner group relative cursor-pointer"
+                >
+                  {user.profilePicture ? (
+                    <img src={user.profilePicture} className="w-full h-full object-cover" alt="Profile" />
+                  ) : (
+                    <UserIcon className="w-12 h-12 text-slate-800" />
+                  )}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Upload className="w-5 h-5 text-white" />
+                  </div>
+                  <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} />
+                </div>
+                <div>
+                  <h3 className="text-white font-bold mb-1">Profile Photo</h3>
+                  <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black">Click image to upload a new avatar.</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">{t.settings.username}</label>
+                <div className="flex gap-4">
+                  <input 
+                    type="text" 
+                    className="flex-grow bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-indigo-400 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                  />
+                  <button 
+                    onClick={handleUpdateUsername}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg active:scale-95"
+                  >
+                    {saved ? 'Saved!' : t.settings.save}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
           {/* Support Section */}
           <section className="bg-indigo-600/10 backdrop-blur-xl border border-indigo-500/20 rounded-3xl p-8 shadow-2xl relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none group-hover:scale-110 transition-transform">
@@ -162,147 +160,6 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdate, onLogout, t, curren
               >
                 <Mail className="w-4 h-4" /> Message Us
               </a>
-            </div>
-          </section>
-
-          {/* API Keys Section */}
-          <section className="bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-indigo-600/10 flex items-center justify-center text-indigo-400 border border-indigo-400/20">
-                <Key className="w-5 h-5" />
-              </div>
-              <h2 className="text-xl font-bold font-space text-white uppercase tracking-tight">{t.settings.apiKeys.title}</h2>
-            </div>
-
-            <div className="space-y-8">
-              {/* Coding Key */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t.settings.apiKeys.codingLabel}</label>
-                  <StatusBadge status={codingStatus} t={t} />
-                </div>
-                <div className="flex gap-2">
-                  <input 
-                    type="password"
-                    className="flex-grow bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-indigo-400 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
-                    value={codingKey}
-                    onChange={(e) => { setCodingKey(e.target.value); setCodingStatus('idle'); }}
-                    placeholder="Enter Coding API Key..."
-                  />
-                  <button 
-                    onClick={() => testKey(codingKey, setCodingStatus)}
-                    className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-400 transition-colors"
-                    title={t.settings.apiKeys.validate}
-                  >
-                    <Activity className={`w-5 h-5 ${codingStatus === 'loading' ? 'animate-pulse text-indigo-400' : ''}`} />
-                  </button>
-                </div>
-                <p className="mt-2 text-[9px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">
-                  {t.settings.apiKeys.codingDesc}
-                </p>
-              </div>
-
-              {/* Image Key */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t.settings.apiKeys.imageLabel}</label>
-                  <StatusBadge status={imageStatus} t={t} />
-                </div>
-                <div className="flex gap-2">
-                  <input 
-                    type="password"
-                    className="flex-grow bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-indigo-400 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
-                    value={imageKey}
-                    onChange={(e) => { setImageKey(e.target.value); setImageStatus('idle'); }}
-                    placeholder="Enter Image API Key..."
-                  />
-                  <button 
-                    onClick={() => testKey(imageKey, setImageStatus)}
-                    className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-400 transition-colors"
-                    title={t.settings.apiKeys.validate}
-                  >
-                    <Activity className={`w-5 h-5 ${imageStatus === 'loading' ? 'animate-pulse text-purple-400' : ''}`} />
-                  </button>
-                </div>
-                <p className="mt-2 text-[9px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">
-                  {t.settings.apiKeys.imageDesc}
-                </p>
-              </div>
-
-              <button 
-                onClick={handleUpdateKeys}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest transition-all shadow-xl active:scale-95"
-              >
-                Save Connection Config
-              </button>
-            </div>
-          </section>
-
-          {/* Avatar Section */}
-          <section className="bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-indigo-600/10 flex items-center justify-center text-indigo-400 border border-indigo-400/20">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <h2 className="text-xl font-bold font-space text-white uppercase tracking-tight">{t.settings.avatarTitle}</h2>
-            </div>
-            
-            <div className="flex flex-col md:flex-row gap-8 items-center">
-              <div className="w-32 h-32 rounded-3xl bg-slate-950 border border-slate-800 flex items-center justify-center overflow-hidden shrink-0 shadow-inner group relative">
-                {user.profilePicture ? (
-                  <img src={user.profilePicture} className="w-full h-full object-cover" alt="Profile" />
-                ) : (
-                  <UserIcon className="w-12 h-12 text-slate-800" />
-                )}
-              </div>
-              <div className="flex-grow space-y-4 w-full">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">{t.settings.avatarSub}</p>
-                <div className="flex gap-2">
-                  <input 
-                    type="text" 
-                    className="flex-grow bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-slate-300 outline-none focus:border-indigo-500"
-                    value={picPrompt}
-                    onChange={(e) => setPicPrompt(e.target.value)}
-                  />
-                  <button 
-                    onClick={handleGenerateProfilePic}
-                    disabled={isGeneratingPic || !picPrompt}
-                    className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white p-3 rounded-xl transition-all"
-                  >
-                    {isGeneratingPic ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Identity Section */}
-          <section className="bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-10 h-10 rounded-xl bg-indigo-600/10 flex items-center justify-center text-indigo-400 border border-indigo-400/20">
-                <UserIcon className="w-5 h-5" />
-              </div>
-              <h2 className="text-xl font-bold font-space text-white uppercase tracking-tight">{t.settings.identity}</h2>
-            </div>
-            
-            <div className="space-y-6">
-              <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">{t.settings.username}</label>
-                <div className="flex gap-4">
-                  <input 
-                    type="text" 
-                    className="flex-grow bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-indigo-400 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                  />
-                  <button 
-                    onClick={handleUpdateUsername}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg active:scale-95"
-                  >
-                    {t.settings.save}
-                  </button>
-                </div>
-              </div>
             </div>
           </section>
         </div>
@@ -354,7 +211,7 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdate, onLogout, t, curren
                   'bg-slate-950 border-slate-800 hover:border-indigo-500 text-slate-400 hover:text-white'
                 }`}
                >
-                 {importStatus === 'success' ? <CheckCircle className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
+                 {importStatus === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
                  {importStatus === 'success' ? 'RESTORED' : importStatus === 'error' ? 'RESTORATION FAILED' : t.settings.importBtn}
                </button>
                <input type="file" ref={fileInputRef} className="hidden" accept=".json,.html" onChange={handleImportFile} />
@@ -394,12 +251,6 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdate, onLogout, t, curren
       </div>
     </div>
   );
-};
-
-const StatusBadge: React.FC<{ status: string, t: any }> = ({ status, t }) => {
-  if (status === 'valid') return <span className="text-[9px] font-black text-green-500 uppercase tracking-widest flex items-center gap-1"><CheckCircle className="w-2.5 h-2.5" /> {t.settings.apiKeys.valid}</span>;
-  if (status === 'invalid') return <span className="text-[9px] font-black text-red-500 uppercase tracking-widest flex items-center gap-1"><XCircle className="w-2.5 h-2.5" /> {t.settings.apiKeys.invalid}</span>;
-  return <span className="text-[9px] font-black text-slate-700 uppercase tracking-widest">{t.settings.apiKeys.notSet}</span>;
 };
 
 export default Settings;

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { AlertTriangle, BarChart3, Rocket, Heart, Play, Activity, Cpu } from 'lucide-react';
+import { BarChart3, Rocket, Heart, Play, Activity, Cpu } from 'lucide-react';
 import { User, Game } from '../types';
 
 interface DashboardProps {
@@ -25,26 +25,17 @@ const StatCard: React.FC<{ icon: React.ReactNode, label: string, value: string |
 const Dashboard: React.FC<DashboardProps> = ({ user, games, t }) => {
   const userGames = games.filter(g => g.creator === user.username);
   const totalPlays = userGames.reduce((acc, curr) => acc + curr.plays, 0);
-  const totalReactions = userGames.reduce((acc, curr) => {
-    return acc + Object.values(curr.reactions || {}).reduce((a, b) => a + b, 0);
+  // Fix: Explicitly type reduce accumulators to avoid 'unknown' type errors during calculation
+  const totalReactions = userGames.reduce((acc: number, curr: Game) => {
+    const reactions = curr.reactions || {};
+    return acc + Object.values(reactions).reduce((a: number, b: number) => a + b, 0);
   }, 0);
-
-  const isKeyMissing = !process.env.API_KEY;
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-12 animate-in fade-in duration-500">
-      <header className="mb-12 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div>
-          <h1 className="text-4xl font-black font-space text-white uppercase tracking-tighter mb-2">{t.dashboard.title}</h1>
-          <p className="text-slate-500 font-light">{t.dashboard.sub}</p>
-        </div>
-        
-        <div className={`px-6 py-3 rounded-2xl border flex items-center gap-3 ${isKeyMissing ? 'bg-red-500/10 border-red-500/20' : 'bg-green-500/10 border-green-500/20'}`}>
-          <div className={`w-3 h-3 rounded-full ${isKeyMissing ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`}></div>
-          <span className={`text-xs font-black uppercase tracking-widest ${isKeyMissing ? 'text-red-400' : 'text-green-400'}`}>
-            {isKeyMissing ? t.dashboard.notConnected : t.dashboard.connected}
-          </span>
-        </div>
+      <header className="mb-12">
+        <h1 className="text-4xl font-black font-space text-white uppercase tracking-tighter mb-2">{t.dashboard.title}</h1>
+        <p className="text-slate-500 font-light">{t.dashboard.sub}</p>
       </header>
 
       {/* Engagement Analytics */}
@@ -87,36 +78,28 @@ const Dashboard: React.FC<DashboardProps> = ({ user, games, t }) => {
              </h2>
              <div className="space-y-6 relative z-10">
                 <div className="flex items-center justify-between py-3 border-b border-slate-800">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">AI Connection</span>
-                  <span className={`text-xs font-black uppercase tracking-widest ${isKeyMissing ? 'text-red-500' : 'text-green-500'}`}>
-                    {isKeyMissing ? t.dashboard.notConnected : t.dashboard.connected}
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Storage Status</span>
+                  <span className="text-xs font-black uppercase tracking-widest text-green-500">
+                    Online (Local)
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-3">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">AI Builder Module</span>
-                  <span className={`text-xs font-black uppercase tracking-widest ${isKeyMissing ? 'text-slate-700' : 'text-green-500'}`}>
-                    {isKeyMissing ? t.dashboard.waiting : t.dashboard.ready}
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Publishing Rights</span>
+                  <span className="text-xs font-black uppercase tracking-widest text-green-500">
+                    Authorized
                   </span>
                 </div>
              </div>
-             
-             {isKeyMissing && (
-               <div className="mt-8 p-6 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-4">
-                  <AlertTriangle className="w-6 h-6 text-red-500 shrink-0" />
-                  <p className="text-xs text-red-300 font-light leading-relaxed">
-                    {t.dashboard.keyAlert}
-                  </p>
-               </div>
-             )}
           </div>
         </div>
 
         <div className="space-y-6">
           <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800 rounded-3xl p-8 shadow-xl">
-            <h3 className="font-bold font-space text-white text-lg mb-4 uppercase tracking-tight">Recent Activity</h3>
+            <h3 className="font-bold font-space text-white text-lg mb-4 uppercase tracking-tight">Session Log</h3>
             <div className="space-y-4 text-slate-500 text-sm font-light leading-relaxed">
-              <p>• Everything is working correctly.</p>
+              <p>• Local storage vault is active.</p>
               <p>• Logged in as {user.username}.</p>
+              <p>• System is ready for deployments.</p>
             </div>
           </div>
         </div>

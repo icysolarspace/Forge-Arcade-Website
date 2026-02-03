@@ -43,8 +43,10 @@ const Profile: React.FC<ProfileProps> = ({ games, allUsers }) => {
 
   const userGames = games.filter(g => g.creator.toLowerCase() === user?.username.toLowerCase());
   const totalPlays = userGames.reduce((acc, curr) => acc + curr.plays, 0);
-  const totalReactions = userGames.reduce((acc, curr) => {
-    return acc + Object.values(curr.reactions || {}).reduce((a, b) => a + b, 0);
+  // Fix: Explicitly type reduce accumulators to avoid 'unknown' type errors during calculation
+  const totalReactions = userGames.reduce((acc: number, curr: Game) => {
+    const reactions = curr.reactions || {};
+    return acc + Object.values(reactions).reduce((a: number, b: number) => a + b, 0);
   }, 0);
 
   return (
