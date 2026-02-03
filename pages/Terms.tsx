@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ArrowLeft, FileText, Shield, ExternalLink } from 'lucide-react';
+import { ArrowLeft, FileText, Shield, ExternalLink, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Terms: React.FC = () => (
@@ -18,31 +18,33 @@ const Terms: React.FC = () => (
     <div className="space-y-10 text-slate-400 font-light leading-relaxed">
       <section className="bg-slate-900/40 p-6 rounded-2xl border border-slate-800">
         <h2 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-          <Shield className="w-5 h-5 text-indigo-400" /> 1. You Are In Control
+          <Shield className="w-5 h-5 text-indigo-400" /> 1. You Always Stay in Control
         </h2>
-        <p>Using this website means you agree to these simple rules. Everything you build here belongs to you. We don't own your games, and we don't have a "back door" to see what you're doing. You are the captain of this ship.</p>
+        <p>Using this website means you agree to these simple rules. Everything you build here belongs to you. We do not own your games, and we cannot "see" your private work. You are 100% in control of your account and your code.</p>
       </section>
       
       <section>
         <h2 className="text-white font-bold text-lg mb-4">2. Powered by Google Gemini</h2>
-        <p>The AI features on this site are powered directly by <strong>Google Gemini</strong>. When you use your API key, your data goes straight to Google's servers to be processed. Our company does not sit in the middle—we never see, store, or view your API data or the code you generate.</p>
+        <p>The AI features on this site are handled directly by <strong>Google Gemini</strong>. When you use your API key to build a game, your instructions are sent straight to Google. Our company is just the interface—we never take, store, or view your API data or the code you generate.</p>
         <a href="https://ai.google.dev/terms" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-400 hover:text-white mt-3 transition-colors">
-          View Google's API Terms <ExternalLink className="w-3 h-3" />
+          View Google's Third-Party Terms <ExternalLink className="w-3 h-3" />
         </a>
       </section>
 
       <section>
-        <h2 className="text-white font-bold text-lg mb-4">3. We Never Train on Your Data</h2>
-        <p>We do not use your code, prompts, or games to train AI models. Your creative work stays private to your browser session. This website is a safe space for you to experiment and build without being "watched" or used as training data.</p>
+        <h2 className="text-white font-bold text-lg mb-4">3. No Training, No Harvesting</h2>
+        <p>We believe in a safe internet. We never train AI models on your code or data. Your creative prompts and game logic stay private to your browser session. We do not "scrape" your content for any reason.</p>
       </section>
 
-      <section>
-        <h2 className="text-white font-bold text-lg mb-4">4. Deleting Everything</h2>
-        <p>Since we don't store your data on our own servers, you have the ultimate "kill switch." If you want to wipe everything—your keys, your games, and your profile—simply clear your browser's cookies and local storage. Once you do that, it's gone forever from your device.</p>
+      <section className="bg-red-500/5 p-6 rounded-2xl border border-red-500/10">
+        <h2 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
+          <Trash2 className="w-5 h-5 text-red-400" /> 4. Delete Everything Instantly
+        </h2>
+        <p>Because we don't store your data on our servers, you have the ultimate power to delete it. To erase all your games, keys, and history, simply <strong>clear your browser's cookies and local storage</strong>. Once you do that, your data is gone forever from your device.</p>
       </section>
       
-      <div className="pt-10 border-t border-slate-800 text-[10px] uppercase tracking-widest text-slate-600 font-bold">
-        Last Updated: October 2023 • All Systems Safe
+      <div className="pt-10 border-t border-slate-800 text-[10px] uppercase tracking-widest text-slate-600 font-bold text-center">
+        Status: Secure & User-Owned • Last Updated: Oct 2023
       </div>
     </div>
   </div>
