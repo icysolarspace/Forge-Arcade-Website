@@ -2,7 +2,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { Game, User, AppState, Language } from './types';
 
-// Supabase Credentials (Provided by User)
+// Supabase Credentials
 const SUPABASE_URL = 'https://ikjiwaxclggssyvzozivv.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlraml3YXhjbGdzc3l2em9jaXZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxMzcwMTcsImV4cCI6MjA4NTcxMzAxN30._plOEdSdoV8T2mG5epHW1CeMFtWrPFDrtKrj1sEfZ6M';
 
@@ -18,21 +18,12 @@ const DEFAULT_STATE: AppState = {
   communityGames: []
 };
 
-/**
- * Gets the current SESSION state from LocalStorage (who is logged in).
- * The games list will be populated by fetchGlobalData separately.
- */
 export const getAppState = (): AppState => {
   const rawData = localStorage.getItem(STORAGE_KEY);
   if (!rawData) return DEFAULT_STATE;
-  
   try {
     const parsed = JSON.parse(rawData);
-    return {
-      ...DEFAULT_STATE,
-      ...parsed,
-      communityGames: []
-    };
+    return { ...DEFAULT_STATE, ...parsed, communityGames: [] };
   } catch (e) {
     return DEFAULT_STATE;
   }
@@ -42,10 +33,7 @@ export const saveAppState = (state: AppState) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 };
 
-/**
- * Fetches all games and users from the Supabase global database.
- */
-export const fetchGlobalData = async (): Promise<{ games: Game[], users: User[] }> => {
+export const fetchGlobalData = async (): Promise<{ games: Game[], users: User[], online: boolean, error?: string }> => {
   try {
     const { data: games, error: gamesError } = await supabase
       .from('games')
@@ -56,20 +44,67 @@ export const fetchGlobalData = async (): Promise<{ games: Game[], users: User[] 
       .from('users')
       .select('*');
 
-    if (gamesError || usersError) throw gamesError || usersError;
+    if (gamesError || usersError) {
+      const errMsg = gamesError?.message || usersError?.message || "Unknown Database Error";
+      const local = getAppState();
+      return { games: local.games || [], users: local.allUsers || [], online: false, error: errMsg };
+    }
+
+    const local = getAppState();
+    // Merge logic: Keep local games that might not be in the cloud yet
+    const cloudIds = new Set((games || []).map(g => g.id));
+    const localOnlyGames = (local.games || []).filter(g => !cloudIds.has(g.id));
+    
+    const newState = { 
+      ...local, 
+      games: [...(games || []), ...localOnlyGames], 
+      allUsers: users || [] 
+    };
+    saveAppState(newState);
 
     return {
       games: games || [],
-      users: users || []
+      users: users || [],
+      online: true
     };
-  } catch (err) {
-    console.error("Global fetch failed:", err);
-    return { games: [], users: [] };
+  } catch (err: any) {
+    const local = getAppState();
+    return { games: local.games || [], users: local.allUsers || [], online: false, error: err.message };
   }
 };
 
+/**
+ * Pushes any games found in local storage that aren't in the cloud.
+ */
+export const syncLocalToCloud = async (): Promise<{ success: number, failed: number }> => {
+  const local = getAppState();
+  const localGames = local.games || [];
+  
+  // 1. Get current cloud IDs
+  const { data: cloudGames } = await supabase.from('games').select('id');
+  const cloudIds = new Set((cloudGames || []).map(g => g.id));
+  
+  // 2. Identify missing games
+  const toUpload = localGames.filter(g => !cloudIds.has(g.id));
+  
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const game of toUpload) {
+    try {
+      const { error } = await supabase.from('games').insert([game]);
+      if (error) failCount++;
+      else successCount++;
+    } catch (e) {
+      failCount++;
+    }
+  }
+
+  return { success: successCount, failed: failCount };
+};
+
 export const publishGame = async (gameData: Omit<Game, 'id' | 'createdAt' | 'plays' | 'reactions' | 'userReactions' | 'moderated'>) => {
-  const newGame: Partial<Game> = {
+  const newGame: Game = {
     ...gameData,
     id: Math.random().toString(36).substr(2, 9),
     createdAt: Date.now(),
@@ -80,38 +115,39 @@ export const publishGame = async (gameData: Omit<Game, 'id' | 'createdAt' | 'pla
     isLive: true 
   };
 
-  const { data, error } = await supabase
-    .from('games')
-    .insert([newGame])
-    .select();
+  try {
+    const { data, error } = await supabase.from('games').insert([newGame]).select();
+    if (!error && data) return data[0];
+  } catch (e) {}
 
-  if (error) throw error;
-  return data[0];
+  const state = getAppState();
+  state.games = [newGame, ...state.games];
+  saveAppState(state);
+  return newGame;
 };
 
 export const deleteGame = async (gameId: string) => {
-  const { error } = await supabase
-    .from('games')
-    .delete()
-    .eq('id', gameId);
-  
-  if (error) throw error;
+  try {
+    await supabase.from('games').delete().eq('id', gameId);
+  } catch (e) {}
+  const state = getAppState();
+  state.games = state.games.filter(g => g.id !== gameId);
+  saveAppState(state);
 };
 
 export const updateGame = async (updatedGame: Game) => {
-  const { error } = await supabase
-    .from('games')
-    .update({ 
+  try {
+    await supabase.from('games').update({ 
       title: updatedGame.title,
       description: updatedGame.description,
       genre: updatedGame.genre,
       htmlCode: updatedGame.htmlCode,
       coverImage: updatedGame.coverImage,
-      moderated: true
-    })
-    .eq('id', updatedGame.id);
-
-  if (error) throw error;
+    }).eq('id', updatedGame.id);
+  } catch (e) {}
+  const state = getAppState();
+  state.games = state.games.map(g => g.id === updatedGame.id ? updatedGame : g);
+  saveAppState(state);
 };
 
 export const logoutUser = () => {
@@ -122,80 +158,59 @@ export const logoutUser = () => {
 
 export const loginUser = async (username: string): Promise<User | null> => {
   const cleanUsername = username.trim().toLowerCase();
-  
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .ilike('username', cleanUsername)
-    .single();
-
-  if (error || !data) return null;
-
+  try {
+    const { data, error } = await supabase.from('users').select('*').ilike('username', cleanUsername).single();
+    if (!error && data) {
+      const state = getAppState();
+      state.currentUser = data;
+      saveAppState(state);
+      return data;
+    }
+  } catch (e) {}
   const state = getAppState();
-  state.currentUser = data;
-  saveAppState(state);
-  return data;
+  const localUser = state.allUsers.find(u => u.username.toLowerCase() === cleanUsername);
+  if (localUser) {
+    state.currentUser = localUser;
+    saveAppState(state);
+    return localUser;
+  }
+  return null;
 };
 
 export const registerUser = async (username: string): Promise<User | null> => {
   const cleanUsername = username.trim();
-  
-  // Check if exists
-  const { data: existing } = await supabase
-    .from('users')
-    .select('username')
-    .ilike('username', cleanUsername)
-    .single();
-
-  if (existing) return null;
-
-  const newUser: User = { 
-    username: cleanUsername, 
-    joinedAt: Date.now() 
-  };
-  
-  const { data, error } = await supabase
-    .from('users')
-    .insert([newUser])
-    .select()
-    .single();
-
-  if (error) throw error;
-
+  const newUser: User = { username: cleanUsername, joinedAt: Date.now() };
+  try {
+    const { data, error } = await supabase.from('users').insert([newUser]).select().single();
+    if (!error && data) {
+      const state = getAppState();
+      state.currentUser = data;
+      saveAppState(state);
+      return data;
+    }
+  } catch (e) {}
   const state = getAppState();
-  state.currentUser = data;
+  if (state.allUsers.some(u => u.username.toLowerCase() === cleanUsername.toLowerCase())) return null;
+  state.allUsers.push(newUser);
+  state.currentUser = newUser;
   saveAppState(state);
-  return data;
+  return newUser;
 };
 
 export const addReaction = async (gameId: string, emoji: string, username: string) => {
-  const { data: game, error: fetchError } = await supabase
-    .from('games')
-    .select('*')
-    .eq('id', gameId)
-    .single();
-
-  if (fetchError || !game) return;
-
-  const reactions = game.reactions || { '👍': 0, '❤️': 0, '🚀': 0, '🔥': 0, '🕹️': 0 };
-  const userReactions = game.userReactions || {};
-
-  const existingReaction = userReactions[username];
-  if (existingReaction === emoji) return;
-
-  if (existingReaction) {
-    reactions[existingReaction] = Math.max(0, (reactions[existingReaction] || 0) - 1);
-  }
-
-  userReactions[username] = emoji;
-  reactions[emoji] = (reactions[emoji] || 0) + 1;
-
-  const { error: updateError } = await supabase
-    .from('games')
-    .update({ reactions, userReactions })
-    .eq('id', gameId);
-
-  if (updateError) throw updateError;
+  try {
+    const { data: game } = await supabase.from('games').select('*').eq('id', gameId).single();
+    if (game) {
+      const reactions = game.reactions || { '👍': 0, '❤️': 0, '🚀': 0, '🔥': 0, '🕹️': 0 };
+      const userReactions = game.userReactions || {};
+      const existingReaction = userReactions[username];
+      if (existingReaction === emoji) return;
+      if (existingReaction) reactions[existingReaction] = Math.max(0, (reactions[existingReaction] || 0) - 1);
+      userReactions[username] = emoji;
+      reactions[emoji] = (reactions[emoji] || 0) + 1;
+      await supabase.from('games').update({ reactions, userReactions }).eq('id', gameId);
+    }
+  } catch (e) {}
 };
 
 export const setLanguage = (lang: Language) => {
@@ -204,48 +219,27 @@ export const setLanguage = (lang: Language) => {
   saveAppState(state);
 };
 
-// Fix: Implement downloadUserData for session backup
 export const downloadUserData = (format: 'json' | 'html', user: User, games: Game[]) => {
   const data = JSON.stringify({ user, games, timestamp: Date.now() });
-  const filename = `forge_vault_${user.username}_${new Date().toISOString().split('T')[0]}`;
-  
-  let blob: Blob;
-  if (format === 'json') {
-    blob = new Blob([data], { type: 'application/json' });
-  } else {
-    const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head><title>ForgeArcade Vault Archive</title></head>
-<body>
-  <h1>ForgeArcade Vault Archive</h1>
-  <p>User: ${user.username}</p>
-  <script id="vault-data" type="application/json">${data}</script>
-  <p>To restore, upload this file in ForgeArcade settings.</p>
-</body>
-</html>`;
-    blob = new Blob([htmlContent], { type: 'text/html' });
-  }
-
+  const blob = format === 'json' 
+    ? new Blob([data], { type: 'application/json' })
+    : new Blob([`<!DOCTYPE html><html><body><script id="vault-data" type="application/json">${data}</script></body></html>`], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `${filename}.${format}`;
+  link.download = `forge_vault_${user.username}.${format}`;
   link.click();
   URL.revokeObjectURL(url);
 };
 
-// Fix: Implement importData to restore session from a vault file
 export const importData = (jsonData: string): boolean => {
   try {
     const parsed = JSON.parse(jsonData);
     if (!parsed || !parsed.user) return false;
-    
     const state = getAppState();
     state.currentUser = parsed.user;
+    if (parsed.games) state.games = [...parsed.games, ...state.games];
     saveAppState(state);
     return true;
-  } catch (e) {
-    return false;
-  }
+  } catch (e) { return false; }
 };

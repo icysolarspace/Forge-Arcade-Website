@@ -13,7 +13,11 @@ import {
   HelpCircle,
   LayoutGrid,
   Mail,
-  Loader2
+  Loader2,
+  Cloud,
+  CloudOff,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 import { getAppState, logoutUser, fetchGlobalData } from './store';
 import { AppState, User } from './types';
@@ -27,7 +31,7 @@ const ScrollToTop = () => {
   return null;
 };
 
-const Navbar: React.FC<{ user: User | null; onLogout: () => void; t: any; syncing?: boolean }> = ({ user, onLogout, t, syncing }) => {
+const Navbar: React.FC<{ user: User | null; onLogout: () => void; t: any; syncing?: boolean; online?: boolean }> = ({ user, onLogout, t, syncing, online }) => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   
@@ -40,11 +44,23 @@ const Navbar: React.FC<{ user: User | null; onLogout: () => void; t: any; syncin
               <Gamepad2 className="w-8 h-8 text-indigo-400" />
               <span className="hidden sm:inline font-space tracking-tight">FORGEARCADE</span>
             </Link>
-            {syncing && (
-              <div className="ml-4 flex items-center gap-2 text-[10px] font-black text-indigo-400 uppercase tracking-widest bg-indigo-500/10 px-3 py-1 rounded-full animate-pulse">
-                <Loader2 className="w-3 h-3 animate-spin" /> Syncing Cloud
-              </div>
-            )}
+            
+            <div className="ml-4 flex items-center gap-2">
+              {syncing ? (
+                <div className="flex items-center gap-2 text-[9px] font-black text-indigo-400 uppercase tracking-widest bg-indigo-500/10 px-3 py-1 rounded-full">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Syncing
+                </div>
+              ) : online ? (
+                <div className="flex items-center gap-2 text-[9px] font-black text-green-400 uppercase tracking-widest bg-green-500/10 px-3 py-1 rounded-full border border-green-500/20">
+                  <Wifi className="w-3 h-3" /> Cloud Live
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-[9px] font-black text-orange-400 uppercase tracking-widest bg-orange-500/10 px-3 py-1 rounded-full border border-orange-500/20">
+                  <WifiOff className="w-3 h-3" /> Offline Mode
+                </div>
+              )}
+            </div>
+
             <div className="hidden md:block ml-10">
               <div className="flex items-baseline space-x-4">
                 <Link to="/" className={`px-3 py-2 rounded-md text-sm font-medium transition-all ${location.pathname === '/' ? 'text-indigo-400' : 'text-gray-300 hover:text-white'}`}>{t.nav.browse}</Link>
@@ -98,9 +114,6 @@ const Navbar: React.FC<{ user: User | null; onLogout: () => void; t: any; syncin
         <div className="md:hidden bg-slate-900 border-b border-slate-800 pb-3 px-2 pt-2 space-y-1 animate-in slide-in-from-top duration-200">
           <Link to="/" onClick={() => setIsOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-slate-800">{t.nav.browse}</Link>
           <Link to="/howto" onClick={() => setIsOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-slate-800">{t.nav.howTo}</Link>
-          {!user && (
-            <Link to="/contact" onClick={() => setIsOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-slate-800">{t.nav.contact}</Link>
-          )}
           {user ? (
             <>
               <Link to="/create" onClick={() => setIsOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-slate-800">{t.nav.create}</Link>
@@ -138,13 +151,15 @@ import Contact from './pages/Contact';
 export default function App() {
   const [state, setState] = useState<AppState>(getAppState());
   const [syncing, setSyncing] = useState(false);
+  const [isOnline, setIsOnline] = useState(false);
 
   const syncData = async () => {
     setSyncing(true);
     const globalData = await fetchGlobalData();
+    setIsOnline(globalData.online);
     setState(prev => ({
       ...prev,
-      ...getAppState(), // Keep user session
+      ...getAppState(), 
       games: globalData.games,
       allUsers: globalData.users
     }));
@@ -153,7 +168,6 @@ export default function App() {
 
   useEffect(() => {
     syncData();
-    // Auto-refresh every 60 seconds to see new community games
     const interval = setInterval(syncData, 60000);
     return () => clearInterval(interval);
   }, []);
@@ -174,7 +188,7 @@ export default function App() {
     <HashRouter>
       <ScrollToTop />
       <div className="min-h-screen flex flex-col">
-        <Navbar user={state.currentUser} onLogout={handleLogout} t={t} syncing={syncing} />
+        <Navbar user={state.currentUser} onLogout={handleLogout} t={t} syncing={syncing} online={isOnline} />
         <main className="flex-grow">
           <Routes>
             <Route path="/" element={<Home games={state.games} user={state.currentUser} t={t} />} />
@@ -219,9 +233,6 @@ export default function App() {
                 <Link to="/howto" className="hover:text-indigo-400 flex items-center gap-1.5 transition-colors"><HelpCircle className="w-4 h-4" /> Guide</Link>
                 {!state.currentUser && <Link to="/contact" className="hover:text-indigo-400 flex items-center gap-1.5 transition-colors"><Mail className="w-4 h-4" /> Contact</Link>}
               </div>
-            </div>
-            <div className="mt-8 pt-8 border-t border-slate-800/50 text-center text-gray-600 text-[11px] tracking-widest uppercase">
-              &copy; {new Date().getFullYear()} FORGEARCADE DIGITAL. GLOBAL NETWORK ACTIVE.
             </div>
           </div>
         </footer>
