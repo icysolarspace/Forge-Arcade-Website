@@ -1,0 +1,8 @@
+{
+  "name": "ForgeArcade AI",
+  "description": "A platform to play and create AI-powered HTML5 games. Build games using Gemini and share them with the community.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
