@@ -2,9 +2,17 @@
 import { createClient } from '@supabase/supabase-js';
 import { Game, User, AppState, Language } from './types';
 
-// Supabase Credentials
-const SUPABASE_URL = 'https://ikjiwaxclggssyvzozivv.supabase.co';
+// Supabase Credentials - VERIFIED Project ID: ikjiwaxclgssyvzocivv
+const SUPABASE_URL = 'https://ikjiwaxclgssyvzocivv.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlraml3YXhjbGdzc3l2em9jaXZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxMzcwMTcsImV4cCI6MjA4NTcxMzAxN30._plOEdSdoV8T2mG5epHW1CeMFtWrPFDrtKrj1sEfZ6M';
+
+// Check for JWT mismatch (Diagnostic)
+try {
+  const payload = JSON.parse(atob(SUPABASE_ANON_KEY.split('.')[1]));
+  if (payload.ref !== 'ikjiwaxclgssyvzocivv') {
+    console.warn("SUPABASE ALIAS MISMATCH: The API Key belongs to project '" + payload.ref + "' but you are trying to connect to 'ikjiwaxclgssyvzocivv'.");
+  }
+} catch (e) {}
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -33,25 +41,45 @@ export const saveAppState = (state: AppState) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 };
 
+/**
+ * Direct fetch test to bypass Supabase SDK for diagnostics
+ */
+export const testSupabaseReachability = async (): Promise<{ reachable: boolean; status?: number; error?: string }> => {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/?apikey=${SUPABASE_ANON_KEY}`, {
+      method: 'GET',
+      mode: 'cors',
+      cache: 'no-cache'
+    });
+    return { reachable: response.ok, status: response.status };
+  } catch (err: any) {
+    return { reachable: false, error: err.message };
+  }
+};
+
 export const fetchGlobalData = async (): Promise<{ games: Game[], users: User[], online: boolean, error?: string }> => {
   try {
+    console.log("Connecting to ForgeArcade Cloud Cluster...");
+    
+    // Attempt standard fetch via SDK
     const { data: games, error: gamesError } = await supabase
       .from('games')
       .select('*')
-      .order('createdAt', { ascending: false });
+      .order('createdAt', { ascending: false })
+      .limit(100);
 
     const { data: users, error: usersError } = await supabase
       .from('users')
       .select('*');
 
     if (gamesError || usersError) {
-      const errMsg = gamesError?.message || usersError?.message || "Unknown Database Error";
+      const errMsg = gamesError?.message || usersError?.message || "Database restricted access";
+      console.error("Supabase Error:", gamesError || usersError);
       const local = getAppState();
       return { games: local.games || [], users: local.allUsers || [], online: false, error: errMsg };
     }
 
     const local = getAppState();
-    // Merge logic: Keep local games that might not be in the cloud yet
     const cloudIds = new Set((games || []).map(g => g.id));
     const localOnlyGames = (local.games || []).filter(g => !cloudIds.has(g.id));
     
@@ -62,45 +90,35 @@ export const fetchGlobalData = async (): Promise<{ games: Game[], users: User[],
     };
     saveAppState(newState);
 
-    return {
-      games: games || [],
-      users: users || [],
-      online: true
-    };
+    return { games: games || [], users: users || [], online: true };
   } catch (err: any) {
+    console.error("Network Link Failed:", err.message);
     const local = getAppState();
-    return { games: local.games || [], users: local.allUsers || [], online: false, error: err.message };
+    return { games: local.games || [], users: local.allUsers || [], online: false, error: "Network Error: Link to cloud blocked." };
   }
 };
 
-/**
- * Pushes any games found in local storage that aren't in the cloud.
- */
 export const syncLocalToCloud = async (): Promise<{ success: number, failed: number }> => {
   const local = getAppState();
   const localGames = local.games || [];
   
-  // 1. Get current cloud IDs
-  const { data: cloudGames } = await supabase.from('games').select('id');
-  const cloudIds = new Set((cloudGames || []).map(g => g.id));
-  
-  // 2. Identify missing games
-  const toUpload = localGames.filter(g => !cloudIds.has(g.id));
-  
-  let successCount = 0;
-  let failCount = 0;
+  try {
+    const { data: cloudGames } = await supabase.from('games').select('id');
+    const cloudIds = new Set((cloudGames || []).map(g => g.id));
+    const toUpload = localGames.filter(g => !cloudIds.has(g.id));
+    
+    let successCount = 0;
+    let failCount = 0;
 
-  for (const game of toUpload) {
-    try {
+    for (const game of toUpload) {
       const { error } = await supabase.from('games').insert([game]);
       if (error) failCount++;
       else successCount++;
-    } catch (e) {
-      failCount++;
     }
+    return { success: successCount, failed: failCount };
+  } catch (e) {
+    return { success: 0, failed: localGames.length };
   }
-
-  return { success: successCount, failed: failCount };
 };
 
 export const publishGame = async (gameData: Omit<Game, 'id' | 'createdAt' | 'plays' | 'reactions' | 'userReactions' | 'moderated'>) => {
