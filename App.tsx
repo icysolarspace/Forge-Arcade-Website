@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { HashRouter, Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { 
   Gamepad2, 
   User as UserIcon, 
@@ -15,7 +15,7 @@ import {
   Mail
 } from 'lucide-react';
 import { getAppState, logoutUser } from './store';
-import { AppState, User, Language } from './types';
+import { AppState, User } from './types';
 import { translations } from './translations';
 
 const ScrollToTop = () => {
@@ -135,7 +135,6 @@ export default function App() {
   const handleLogout = () => {
     logoutUser();
     setState(getAppState());
-    window.location.hash = '/';
   };
 
   const refreshState = () => {
@@ -176,7 +175,7 @@ export default function App() {
               state.currentUser ? <Dashboard user={state.currentUser} games={state.games} onUpdate={refreshState} t={t} /> : <Navigate to="/login" />
             } />
             <Route path="/settings" element={
-              state.currentUser ? <Settings user={state.currentUser} onUpdate={refreshState} onLogout={handleLogout} t={t} currentLang={currentLang} /> : <Navigate to="/login" />
+              state.currentUser ? <Settings user={state.currentUser} onUpdate={refreshState} onLogout={handleLogout} t={t} currentLang={state.language} /> : <Navigate to="/login" />
             } />
           </Routes>
         </main>
@@ -185,7 +184,7 @@ export default function App() {
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex flex-col md:flex-row justify-between items-center gap-6">
               <div className="text-center md:text-left">
-                <p className="text-white font-space font-bold text-lg mb-1 tracking-wider uppercase">ForgeArcade AI</p>
+                <p className="text-white font-space font-bold text-lg mb-1 tracking-wider uppercase">ForgeArcade</p>
                 <p className="text-gray-500 text-sm">Built with love.</p>
               </div>
               <div className="flex gap-8 text-sm text-gray-400">
